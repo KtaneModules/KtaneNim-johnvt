@@ -1,0 +1,10 @@
+{
+  "name": "nim-Editor",
+  "references": [
+    "nim"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": []
+}
