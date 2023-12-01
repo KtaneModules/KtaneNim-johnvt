@@ -19,25 +19,14 @@
         <div class="page-content">
             <img src="img/Component/Nim.svg" class="diagram">
             <h2>On the Subject of Nim</h2>
-            <p class="flavour-text">Don’t you be greedy now!</p>
-
-            <h3>Instructions</h3>
-            <p>Beat the mod in a game of Nim.</p>
-            <ul>
-                <li>Last to take, wins. (Normal play, no misère game.)</li>
-                <li>Click on a row to take one match from that row.</li>
-                <li>When you’re done taking, click the status light to end your turn.</li>
-                <li>When you lose the game, you get a strike and the module resets to a new random configuration.</li>
-            </ul>
-
-            <h3>How to play Nim</h3>
-            <p>
-                Two players take turns taking one or more (possibly all) matches from a single row. Take the last match to win.
-            </p>
-
-            <h3>How to win at Nim</h3>
-            <p>The key to the theory of the game is the binary digital sum, or "bitwise xor", of the row sizes. It’s referred to as the <u>nim-sum</u>, and written with this symbol: ⊕. An example of the calculation with rows of size 3, 4, and 5 is as follows:
-            </p>
+            <p class="flavour-text">But not too much.</p>
+            <p>Beat the module in the match-taking game of Nim.</p>
+            <h4>How to play</h4>
+            <p>In Nim, two players take turns taking as many matches as they want, from a single row. Take the last match to win (normal play, no misère game).</p>
+            <p>Click on a row as many times as the number of matches you wish to take. Your turn ends automatically after a short timeout.</p>
+            <p>When you lose the game, you get a strike and the module resets to a new random configuration.</p>
+            <h4>How to win</h4>
+            <p>The key to the theory of the game is the binary digital sum, or "bitwise xor", of the row sizes. This is referred to as the <u>nim-sum</u>, and can be written with this symbol: ⊕. An example of the calculation with rows of size 3, 4, and 5:</p>
             <pre>
              Decimal    Binary
     Row A          3       011
@@ -51,7 +40,7 @@
     A ⊕ X = 3 ⊕ 2 = 1 (Since binary 011 ⊕ 010 = 001)
     B ⊕ X = 4 ⊕ 2 = 6
     C ⊕ X = 5 ⊕ 2 = 7</pre>
-            <p>The only row that is reduced is row A, so the winning move is to reduce the size of row A to 1, by removing two matches. More info on <a href="https://en.wikipedia.org/wiki/Nim" target="_blank">Wikipedia</a>.</p>
+            <p>The only row that is reduced is row A, so the winning move is to reduce the size of row A to 1, by removing two matches. More info on <a href="https://en.wikipedia.org/wiki/Nim" target="_blank" rel="noopener noreferrer">Wikipedia</a>.</p>
         </div>
         <div class="page-footer relative-footer">Page 1 of 1</div>
     </div>
