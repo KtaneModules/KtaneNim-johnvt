@@ -12,90 +12,118 @@ public class NimModule : MonoBehaviour
     public GameObject Matches;
     public GameObject Buttons;
 
-    private GameObject[,] _matches = new GameObject[5,15];
+    private GameObject[,] _matches = new GameObject[5, 15];
     private KMSelectable[] _rowButtons = new KMSelectable[5];
 
     private int _moduleId;
     private static int _moduleIdCounter = 1;
-    private bool _solved = false;
-    private int? _fromHeap = null;
+    private bool _moduleSolved = false;
+    private int? _fromRow = null;
     private int _take = 0;
-    private int[] _heaps = new int[5];
+    private int[] _rows = new int[5];
     private Coroutine _timer;
     private float _elapsedTime;
+    private bool _thinking = false;
 
     protected void Start()
     {
         _moduleId = _moduleIdCounter++;
         Setup();
 
-        for (int i = 0; i < _heaps.Length; i++)
+        for (int i = 0; i < _rows.Length; i++)
         {
             var j = i;
             _rowButtons[i] = Buttons.transform.Find("Row (" + i.ToString() + ")").GetComponent<KMSelectable>();
-            _rowButtons[i].OnInteract += delegate () { TakeFromHeap(j); return false; };
-            _rowButtons[i].transform.Translate(0, 0, -.026f * i);
+            _rowButtons[i].transform.localPosition += new Vector3(0, 0, -3.2f * i);
+            _rowButtons[i].OnInteract += delegate () { TakeFromRow(j); return false; };
         }
 
-        for (int heap = 0; heap < _heaps.Length; heap++)
+        for (int row = 0; row < _rows.Length; row++)
         {
             for (int i = 0; i < 15; i++)
             {
-                _matches[heap,i] = Matches
-                    .transform.Find("Heap (" + heap.ToString() + ")")
+                _matches[row, i] = Matches
+                    .transform.Find("Row (" + row.ToString() + ")")
                     .transform.Find("Match (" + i.ToString() + ")")
                     .gameObject;
-                _matches[heap, i].transform.Translate(
-                    .007f * i + .008f * (i / 5) + UnityEngine.Random.Range(-.0008f, .0008f),
+
+                _matches[row, i].transform.localPosition += new Vector3(
+                    .8f * i + .9f * (i / 5) + UnityEngine.Random.Range(-.08f, .08f),
                     0,
-                    -.026f * heap + UnityEngine.Random.Range(-.0008f, .0008f)
+                    -3.2f * row + UnityEngine.Random.Range(-.08f, .08f)
                 );
-                _matches[heap, i].transform.Rotate(0, UnityEngine.Random.Range(-5, 5), 0);
+
+                _matches[row, i].transform.localRotation = Quaternion.Euler(0, UnityEngine.Random.Range(-5, 5), 0);
             }
         }
 
         UpdateDisplay();
     }
 
-    private void TakeFromHeap(int heap)
+    private void TakeFromRow(int row)
     {
-        if (_solved) return;
+        if (_moduleSolved) return;
 
-        // Reset countdown to Done
-        if (_timer != null)
-            StopCoroutine(_timer);
+        // You are already taking from another row
+        if (_fromRow != null && row != _fromRow) return;
+
+        // You can't take from an empty row
+        if (_rows[row] == 0) return;
+
+        // If you weren't taking from this row already, now you are
+        _fromRow = row;
+
+        // Reset timer to detect when defuser is done taking
+        if (_timer != null) StopCoroutine(_timer);
         _timer = StartCoroutine(Timer());
 
-        // You are already taking from another heap
-        if (_fromHeap != null && heap != _fromHeap) return;
+        _take += 1;
+        _rows[row]--;
 
-        // If you weren't taking from this heap already, now you are
-        _fromHeap = heap;
+        GetComponent<KMSelectable>().AddInteractionPunch(.25f);
+        GetComponent<KMAudio>().PlaySoundAtTransform("match", transform);
+        UpdateDisplay();
+    }
 
-        // TODO: match sound?
-        GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, transform);
-
-        _take++;
-        _heaps[heap]--;
-
-        if (_heaps.Sum() == 0)
+    private IEnumerator TakeFromRowAnim(int row, int newCount)
+    {
+        while (_rows[row] > newCount)
         {
-            _solved = true;
-            BombModule.HandlePass();
+            _rows[row]--;
+
+            GetComponent<KMSelectable>().AddInteractionPunch(.25f);
+            GetComponent<KMAudio>().PlaySoundAtTransform("match", transform);
+            UpdateDisplay();
+            yield return new WaitForSeconds(.2f);
         }
 
+        _thinking = false;
         UpdateDisplay();
+        Log("New configuration: {0}. Nim sum: {1}", string.Join(",", Array.ConvertAll(_rows, x => x.ToString())), NimSum(_rows));
+
+        if (_rows.Sum() == 0)
+        {
+            Log("I win. You get a strike. Let's try again.", _take, _fromRow);
+            BombModule.HandleStrike();
+            Setup();
+            UpdateDisplay();
+        }
     }
 
     private IEnumerator Timer()
     {
         _elapsedTime = 0f;
-        while (_elapsedTime < 2f)
+        while (_elapsedTime < 2f + _rows.Sum() * .07)
         {
+            if (_elapsedTime > 2f)
+            {
+                _thinking = true;
+                UpdateDisplay();
+            }
             yield return null;
             _elapsedTime += Time.deltaTime;
         }
-        Done();
+        DefuserDoneTaking();
     }
 
     private void Setup()
@@ -110,32 +138,32 @@ public class NimModule : MonoBehaviour
                 return;
             }
 
-            for (int i = 0; i < _heaps.Length; i++)
+            for (int i = 0; i < _rows.Length; i++)
             {
-                // Random heap size between 5 and 15, leaning towards the higher end
+                // Random row size between 5 and 15, leaning towards the higher end
                 // Decrease second argument of Pow to increase the curve towards bigger numbers
-                _heaps[i] = (int)Math.Floor(Math.Pow(UnityEngine.Random.Range(0f, 1f), .5) * 11) + 5;
+                _rows[i] = (int)Math.Floor(Math.Pow(UnityEngine.Random.Range(0f, 1f), .5) * 11) + 5;
             }
 
-            // Top heap needs status light to fit on the right
-            if (_heaps[0] > 12) continue;
+            // Top row needs status light to fit on the right
+            if (_rows[0] > 12) continue;
 
             // It cannot be a winning condition
-            if (NimSum(_heaps) == 0) continue;
+            if (NimSum(_rows) == 0) continue;
 
-            // It cannot contain 4 or 5 the same heaps
-            if (_heaps.GroupBy(x => x).Any(g => g.Count() >= 4)) continue;
+            // It cannot contain 4 or 5 the same rows
+            if (_rows.GroupBy(x => x).Any(g => g.Count() >= 4)) continue;
 
             // It cannot contain 2 pairs either
-            if (_heaps.GroupBy(x => x).Count(g => g.Count() == 2) == 2) continue;
+            if (_rows.GroupBy(x => x).Count(g => g.Count() == 2) == 2) continue;
 
-            // You should not be able to remove a complete row right away (heap size equals nim sum)
-            if (Array.Exists(_heaps, i => i == NimSum(_heaps))) continue;
+            // You should not be able to remove a complete row right away (row size equals nim sum)
+            if (Array.Exists(_rows, i => i == NimSum(_rows))) continue;
 
+            // We found a config that meets all criteria
             break;
         }
-
-        Log("Solution found in {0} tries. Nim sum {1}", tries, NimSum(_heaps));
+        Log("Initial configuration: {0}. Nim sum: {1}", string.Join(",", Array.ConvertAll(_rows, x => x.ToString())), NimSum(_rows));
     }
 
     private int NimSum(int[] arr)
@@ -147,44 +175,85 @@ public class NimModule : MonoBehaviour
         return nimSum;
     }
 
-    private void Done()
+    private void DefuserDoneTaking()
     {
-        Log("Taken {0} from heap {1}", _take, _fromHeap);
-        _take = 0;
-        _fromHeap = null;
+        if (_moduleSolved) return;
 
-        int totalNimSum = NimSum(_heaps);
+        Log("You take {0} from row {1}", _take, _fromRow+1);
+        _take = 0;
+        _fromRow = null;
+
+        if (_rows.Sum() == 0)
+        {
+            Log("Module solved!");
+            _moduleSolved = true;
+            BombModule.HandlePass();
+            return;
+        }
+
+        Log("New configuration: {0}. Nim sum: {1}", string.Join(",", Array.ConvertAll(_rows, x => x.ToString())), NimSum(_rows));
+
+        int totalNimSum = NimSum(_rows);
 
         // Player made a mistake somewhere, we keep playing optimal until strike
         if (totalNimSum != 0)
         {
-            for (int i = 0; i < _heaps.Length; i++)
+
+            List<KeyValuePair<int, int>> possibleMoves = new List<KeyValuePair<int, int>>();
+
+            for (int row = 0; row < _rows.Length; row++)
             {
-                int heapSum = NimSum(new int[] { totalNimSum, _heaps[i] });
-                if (heapSum < _heaps[i])
+                int newRowSize = NimSum(new int[] { totalNimSum, _rows[row] });
+                if (newRowSize < _rows[row])
                 {
-                    _heaps[i] = heapSum;
-                    break;
+                    possibleMoves.Add(new KeyValuePair<int, int>(row, newRowSize));
                 }
             }
 
-            if (_heaps.Sum() == 0) {
-                BombModule.HandleStrike();
-                Setup();
-            }
+            // Choose a random move from the list of possible moves
+            int randomMoveIndex = UnityEngine.Random.Range(0, possibleMoves.Count);
+            KeyValuePair<int, int> selectedMove = possibleMoves[randomMoveIndex];
+
+            int selectedRow = selectedMove.Key;
+            int selectedNewRowSize = selectedMove.Value;
+
+            Log("You made a mistake, so I'm playing optimal. I take {0} from row {1}", _rows[selectedRow] - selectedNewRowSize, selectedRow + 1);
+            StartCoroutine(TakeFromRowAnim(selectedRow, selectedNewRowSize));
         }
 
         // Player played optimal
         else
         {
-            while (true) {
+            int tries = 1;
 
-                // Pick a random heap until it's not empty
-                int heap = UnityEngine.Random.Range(0, _heaps.Length);
-                if (_heaps[heap] == 0) continue;
+            while (true)
+            {
+                tries++;
+                int[] rowsCopy = _rows.ToArray();
 
-                // Take a random number of matches (actually set it to a random number that's less than current)
-                _heaps[heap] = UnityEngine.Random.Range(0, _heaps[heap]);
+                // Pick a random row until it's not empty
+                int row = UnityEngine.Random.Range(0, rowsCopy.Length);
+                if (rowsCopy[row] == 0) continue;
+
+                // Take a random number of matches
+                int newRowSize = UnityEngine.Random.Range(0, rowsCopy[row]);
+                rowsCopy[row] = newRowSize;
+
+                // We only try 10 times because sometimes we cannot prevent equal rows
+                if (tries > 10)
+                {
+                    // We prefer not having 4 or 5 of the same rows
+                    if (rowsCopy.GroupBy(x => x).Any(g => g.Count() >= 4)) continue;
+
+                    // We prefer not having 2 pairs
+                    if (rowsCopy.GroupBy(x => x).Count(g => g.Count() == 2) == 2) continue;
+
+                    // We prefer you're not be able to remove a complete row right away (row size equals nim sum)
+                    if (Array.Exists(rowsCopy, i => i == NimSum(rowsCopy))) continue;
+                }
+
+                Log("You are playing optimal, so I'm playing random. I take {0} from row {1}", rowsCopy[row] - newRowSize, row+1);
+                StartCoroutine(TakeFromRowAnim(row, newRowSize));
                 break;
             }
         }
@@ -195,23 +264,25 @@ public class NimModule : MonoBehaviour
     private void UpdateDisplay()
     {
         // Show/hide matches
-        for (int heap = 0; heap < _heaps.Length; heap++)
+        for (int row = 0; row < _rows.Length; row++)
         {
             for (int i = 0; i < 15; i++)
             {
-                _matches[heap, i].gameObject.SetActive(_heaps[heap] > i);
+                _matches[row, i].gameObject.SetActive(_rows[row] > i);
             }
         }
 
         // (De)activate buttons
-        for (int i = 0; i < _heaps.Length; i++)
+        for (int i = 0; i < _rows.Length; i++)
         {
             _rowButtons[i].transform.Find("Highlight").gameObject.SetActive(
-                !_solved
+                !_moduleSolved
                 &&
-                (_fromHeap == null || _fromHeap == i)
+                !_thinking
                 &&
-                _heaps[i] > 0
+                (_fromRow == null || _fromRow == i)
+                &&
+                _rows[i] > 0
             );
         }
     }

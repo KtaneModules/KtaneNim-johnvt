@@ -14,7 +14,7 @@ MonoBehaviour:
   id: nim
   title: Nim
   author: Groover
-  description: 
-  version: 
+  description: Beat the module in the match-taking game of Nim.
+  version: 1.0
   outputFolder: build
   previewImage: {fileID: 0}
