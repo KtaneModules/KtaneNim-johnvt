@@ -292,4 +292,51 @@ public class NimModule : MonoBehaviour
         Debug.LogFormat("[Nim #" + _moduleId + "] " + message, args);
     }
 
+    // Twitch Plays help message
+    #pragma warning disable 414
+    private readonly string TwitchHelpMessage = @"!{0} take 2 5 [Takes 2 matches from the bottom row]";
+    #pragma warning restore 414
+
+    // Twitch Plays command processor
+    IEnumerator ProcessTwitchCommand(string command)
+    {
+        string[] parameters = command.Split(' ');
+        // Command must start with the word "take"
+        if (parameters[0].EqualsIgnoreCase("take"))
+        {
+            // Command must be 3 parameters total
+            if (parameters.Length != 3)
+                yield break;
+            // The 2nd and 3rd parameters must be integers
+            int temp;
+            int temp2;
+            if (!int.TryParse(parameters[1], out temp) || !int.TryParse(parameters[2], out temp2))
+                yield break;
+            // The 3rd parameter must be a valid row and the 2nd parameter must be a positive integer
+            if (temp2 < 1 || temp2 > 5 || temp < 1)
+                yield break;
+            // Check if 2nd parameter is asking for more than the row has
+            if (_rows[temp2 - 1] < temp)
+            {
+                yield return "sendtochaterror The specified row does not have the amount of matches you wish to take!";
+                yield break;
+            }
+            // Prevent taking if the module is thinking
+            if (_thinking)
+            {
+                yield return "sendtochaterror Matches cannot be taken while the module is thinking!";
+                yield break;
+            }
+            // Command has passed all tests, return something to tell TP it's valid and to focus on the mod
+            yield return null;
+            // Take the specified number of matches from the specified row
+            for (int i = 0; i < temp; i++)
+            {
+                _rowButtons[temp2 - 1].OnInteract();
+                yield return new WaitForSeconds(.1f);
+            }
+            // The module takes a while to process after interaction, so tell TP to award strikes/solves to whoever executed this command
+            yield return NimSum(_rows) != 0 ? "strike" : "solve";
+        }
+    }
 }
